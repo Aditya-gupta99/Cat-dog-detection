@@ -1,13 +1,87 @@
 from flask import Flask, request, jsonify
-import requests
+from fastapi import FastAPI, HTTPException
 from ultralytics import YOLO
 import cv2
-import math 
+import math
+import requests
 import time
-
-
+import threading
 
 app = Flask(__name__)
+
+@app.post("/petSync/raspberry/onOff")
+def onOff():
+    try:
+        if request.method == 'POST':
+            data = request.data.decode('utf-8')
+            threading.Thread(target=onMachine, args=(data,), daemon=True).start()
+            return jsonify({'Status': 'On'})
+        else:
+            return "Method Not Allowed", 405
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to switch onOff:{str(e)}")
+    
+
+def onMachine(data):
+    dogCatDetection()
+
+
+FCM_SERVER_KEY = "AAAAOqBZjiA:APA91bE5BugAfPwEZQKIamtS0hkC_zEr0Mg-ygmDofsDlBJXx6JDcj_-IlJZorIb1E7AcLqqenxwo386RudtlY5NFhR1a9XWFmu16kZ1xocK4-ULEhLYNRBECVoMop40kunDxBN7JVHz"
+FCM_ENDPOINT = "https://fcm.googleapis.com/fcm/send"
+BACKEND_ENDPOINT = "http://localhost:5000/petSync/food"
+
+
+def createFcmPayload(animal):
+    return {
+        "to": "/topic/eV4a10hMQcWKPNRkVjqjgC:APA91bHUiipbLh8pvoq2qN3ZzyQhL-ahn1A1NQGNszPj9XGuKyziee1bJ82V8UUwvqyZwyn_6NJLeJRPPqT45sJTXKpRPTrh8MB0TirRFqqYIqtN4bQ8-vz-TKywyFTJCGYNavhDAfvr",
+        "data": {
+            "title": "Feed alert",
+            "message": animal+" has been feeded",
+            "type":"food"
+        },
+    }
+
+
+def sendNotification(animal):
+
+    payload = createFcmPayload(animal)
+    headers = {
+        "Authorization": f"key={FCM_SERVER_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(FCM_ENDPOINT, json=payload, headers=headers)
+
+    if response.status_code == 200:
+        print("success")
+    else:
+        print(response.text)
+
+
+def createFoodPayload(animal):
+    return {
+        "pet": animal,
+        "timestamp": str(int(round(time.time() * 1000)))
+    }
+
+
+def saveFoodDetails(animal):
+    foodPayload = createFoodPayload(animal)
+    headers = {
+        "Content-Type": "application/json"
+    }
+    try :
+        response = requests.post(BACKEND_ENDPOINT,json=foodPayload,headers=headers)
+        if(response.status_code == 200):
+            print("Success")
+        else:
+            print(response.text)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save food data:{str(e)}")
+
+
+
 
 def dogCatDetection():
     
@@ -32,7 +106,7 @@ def dogCatDetection():
               "teddy bear", "hair drier", "toothbrush"
               ]
 
-    cooldown_duration = 60  # Set the cooldown duration in seconds
+    cooldown_duration = 60
     last_notification_time = 0
 
     while True:
@@ -72,7 +146,8 @@ def dogCatDetection():
                 if cls in [15, 16]:
                     cv2.putText(img, classNames[cls], org, font, fontScale, color, thickness)
                     if current_time - last_notification_time >= cooldown_duration:
-                        send_notification(classNames[cls])
+                        sendNotification(classNames[cls])
+                        saveFoodDetails(classNames[cls])
                         last_notification_time = current_time
 
 
@@ -84,39 +159,5 @@ def dogCatDetection():
     cv2.destroyAllWindows()
 
 
-
-FCM_SERVER_KEY = "AAAAOqBZjiA:APA91bE5BugAfPwEZQKIamtS0hkC_zEr0Mg-ygmDofsDlBJXx6JDcj_-IlJZorIb1E7AcLqqenxwo386RudtlY5NFhR1a9XWFmu16kZ1xocK4-ULEhLYNRBECVoMop40kunDxBN7JVHz"
-FCM_ENDPOINT = "https://fcm.googleapis.com/fcm/send"
-
-def create_fcm_payload(animal):
-    return {
-        "to": "/topic/eV4a10hMQcWKPNRkVjqjgC:APA91bHUiipbLh8pvoq2qN3ZzyQhL-ahn1A1NQGNszPj9XGuKyziee1bJ82V8UUwvqyZwyn_6NJLeJRPPqT45sJTXKpRPTrh8MB0TirRFqqYIqtN4bQ8-vz-TKywyFTJCGYNavhDAfvr",
-        "data": {
-            "title": "Feed alert",
-            "message": animal+" has been feeded",
-            "type":"food"
-        },
-    }
-
-@app.route('/send_notification', methods=['POST'])
-def send_notification(animal):
-
-        print("hello")
-
-        payload = create_fcm_payload(animal)
-        headers = {
-            "Authorization": f"key={FCM_SERVER_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        response = requests.post(FCM_ENDPOINT, json=payload, headers=headers)
-
-        if response.status_code == 200:
-            print("success")
-        else:
-            print(response.text)
-
-
-
 if __name__ == '__main__':
-    dogCatDetection()
+    app.run(port =8000, debug = True)
