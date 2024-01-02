@@ -160,4 +160,4 @@ def dogCatDetection():
 
 
 if __name__ == '__main__':
-    app.run(port =8000, debug = True)
+    app.run(host='192.168.104.21',port =8000, debug = True)
