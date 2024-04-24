@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,json
 from fastapi import FastAPI, HTTPException
 from ultralytics import YOLO
 import cv2
@@ -6,6 +6,10 @@ import math
 import requests
 import time
 import threading
+import firebase_admin
+from firebase_admin import credentials
+from google.oauth2 import service_account
+import google.auth.transport.requests
 
 app = Flask(__name__)
 
@@ -14,7 +18,7 @@ def onOff():
     try:
         if request.method == 'POST':
             data = request.data.decode('utf-8')
-            threading.Thread(target=onMachine, args=(data,), daemon=True).start()
+            # threading.Thread(target=onMachine, args=(data,), daemon=True).start()
             return jsonify({'Status': 'On'})
         else:
             return "Method Not Allowed", 405
@@ -22,12 +26,13 @@ def onOff():
         raise HTTPException(status_code=500, detail=f"Failed to switch onOff:{str(e)}")
     
 
-def onMachine(data):
-    dogCatDetection()
+# def onMachine(data):
+    # dogCatDetection()
 
 
 FCM_SERVER_KEY = "AAAAOqBZjiA:APA91bE5BugAfPwEZQKIamtS0hkC_zEr0Mg-ygmDofsDlBJXx6JDcj_-IlJZorIb1E7AcLqqenxwo386RudtlY5NFhR1a9XWFmu16kZ1xocK4-ULEhLYNRBECVoMop40kunDxBN7JVHz"
 FCM_ENDPOINT = "https://fcm.googleapis.com/fcm/send"
+NEW_FCM_ENDPOINT = "http://192.168.215.21/send"
 BACKEND_ENDPOINT = "http://localhost:5000/petSync/food"
 
 
@@ -40,6 +45,39 @@ def createFcmPayload(animal):
             "type":"food"
         },
     }
+
+def createPetFoodPayload(animal):
+    return {
+        "message": {
+                "token": "eV4a10hMQcWKPNRkVjqjgC:APA91bHUiipbLh8pvoq2qN3ZzyQhL-ahn1A1NQGNszPj9XGuKyziee1bJ82V8UUwvqyZwyn_6NJLeJRPPqT45sJTXKpRPTrh8MB0TirRFqqYIqtN4bQ8-vz-TKywyFTJCGYNavhDAfvr",
+                "notification": {
+                    "title": "Feed Alert",
+                    "body": animal+" has been feeded"
+                }
+            }
+    }
+
+def sendPetFeedNotification(animal):
+    fcm_endpoint = "https://fcm.googleapis.com/v1/projects/petsync-dd38d/messages:send"
+
+    try:
+        access_token = _get_access_token()
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.post(fcm_endpoint, headers=headers, json=createPetFoodPayload(animal))
+
+        if response.ok:
+            print("Notification sent successfully")
+        else:
+            print(f"Failed to send notification. Response code: {response.text}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 
 def sendNotification(animal):
@@ -146,8 +184,9 @@ def dogCatDetection():
                 if cls in [15, 16]:
                     cv2.putText(img, classNames[cls], org, font, fontScale, color, thickness)
                     if current_time - last_notification_time >= cooldown_duration:
-                        sendNotification(classNames[cls])
+                        sendPetFeedNotification(classNames[cls])
                         saveFoodDetails(classNames[cls])
+                        send_fcm_notification()
                         last_notification_time = current_time
 
 
@@ -158,6 +197,97 @@ def dogCatDetection():
     cap.release()
     cv2.destroyAllWindows()
 
+    #eVXdx71NR1Gtqzr_3QLqrx:APA91bFFwvPf6oIt0JjHOPS8gtvLNkQ83DJqUBgD4COcifaoT97CADgeIpZ7lKIX1nKl6CWTnXu2EDnjaAOlNEHqjxd_ZXO705wRQDHkt1kYNLrjs9TiUFyYdZyVEu55gGbschYFP7AK
+
+# def createVideoCallFcmPayload():
+    # return {
+        # "to": "/topic/cWPIUR63R1-5v_1zJIvTiK:APA91bE9wEPVv5aVMXJvMZ_O_pUVtSQ7L09rxzs2VaoNljZDWiBlVF2V3aCka3nLpOwCc3J78xenz0ddtlvJnKcAjdwFg4o5SDqIiCemaEyLuYaVpJqWdOr7irz1w0gARrTi9j3SnOQC",
+        # "data": {
+            # "title": "Video call Initiated",
+            # "message": "",
+            # "type":"video"
+        # },
+    # }
+
+# def sendVideoCallNotification():
+
+#     service_account_key_file = "serviceAccountKey.json"
+
+#     with open(service_account_key_file) as f:
+#             service_account_key = json.load(f)
+
+#     access_token = service_account_key["private_key"]
+
+#     cred = credentials.Certificate("serviceAccountKey.json")
+#     firebase_admin.initialize_app(cred)
+#     print(access_token)
+
+#     payload = createVideoCallFcmPayload()
+#     headers = {
+#         "Authorization": f"key={FCM_SERVER_KEY}",
+#         "Content-Type": "application/json",
+#     }
+
+#     response = requests.post(FCM_ENDPOINT, json=payload, headers=headers)
+
+#     if response.status_code == 200:
+#         print(response.text)
+#     else:
+#         print(response.text)
+
+
+
+
+def send_fcm_notification():
+
+    # Example usage
+    title = "Notification Title"
+    body = "Notification Body"
+
+    fcm_endpoint = "https://fcm.googleapis.com/v1/projects/petsync-dd38d/messages:send"
+
+    try:
+        access_token = _get_access_token()
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "message": {
+                "token": "fM41eFgBSaSwuxo2w7Qas9:APA91bGVb91sKMhjh1-H7WjR0Dn89z8vjDtlDg47uFTdHcHhz61yEy8zRxkPgR-v5IAwEU8aEAUyv-1iBBt4zRGtb4IQpCuwBLxQkR7em8xaBoLw4Q7SSuQ794Y_mn-QvPFsLtZq_Gm_",
+                "data": {
+                    "title": title,
+                    "body": body
+                }
+            }
+        }
+
+        response = requests.post(fcm_endpoint, headers=headers, json=payload)
+
+        if response.ok:
+            print("Notification sent successfully")
+        else:
+            print(f"Failed to send notification. Response code: {response.text}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+def _get_access_token():
+    
+    SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
+
+    credentials = service_account.Credentials.from_service_account_file('serviceAccountKey.json', scopes=SCOPES)
+    request = google.auth.transport.requests.Request()
+    credentials.refresh(request)
+    return credentials.token
+
 
 if __name__ == '__main__':
-    app.run(host='192.168.104.21',port =8000, debug = True)
+    # send_fcm_notification()
+    # send_fcm_notification()
+    # sendPetFeedNotification("Dog")
+    # send_fcm_notification()
+    app.run(host='192.168.151.21',port =8000, debug = True)
