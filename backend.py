@@ -197,44 +197,6 @@ def dogCatDetection():
     cap.release()
     cv2.destroyAllWindows()
 
-    #eVXdx71NR1Gtqzr_3QLqrx:APA91bFFwvPf6oIt0JjHOPS8gtvLNkQ83DJqUBgD4COcifaoT97CADgeIpZ7lKIX1nKl6CWTnXu2EDnjaAOlNEHqjxd_ZXO705wRQDHkt1kYNLrjs9TiUFyYdZyVEu55gGbschYFP7AK
-
-# def createVideoCallFcmPayload():
-    # return {
-        # "to": "/topic/cWPIUR63R1-5v_1zJIvTiK:APA91bE9wEPVv5aVMXJvMZ_O_pUVtSQ7L09rxzs2VaoNljZDWiBlVF2V3aCka3nLpOwCc3J78xenz0ddtlvJnKcAjdwFg4o5SDqIiCemaEyLuYaVpJqWdOr7irz1w0gARrTi9j3SnOQC",
-        # "data": {
-            # "title": "Video call Initiated",
-            # "message": "",
-            # "type":"video"
-        # },
-    # }
-
-# def sendVideoCallNotification():
-
-#     service_account_key_file = "serviceAccountKey.json"
-
-#     with open(service_account_key_file) as f:
-#             service_account_key = json.load(f)
-
-#     access_token = service_account_key["private_key"]
-
-#     cred = credentials.Certificate("serviceAccountKey.json")
-#     firebase_admin.initialize_app(cred)
-#     print(access_token)
-
-#     payload = createVideoCallFcmPayload()
-#     headers = {
-#         "Authorization": f"key={FCM_SERVER_KEY}",
-#         "Content-Type": "application/json",
-#     }
-
-#     response = requests.post(FCM_ENDPOINT, json=payload, headers=headers)
-
-#     if response.status_code == 200:
-#         print(response.text)
-#     else:
-#         print(response.text)
-
 
 
 
@@ -286,8 +248,4 @@ def _get_access_token():
 
 
 if __name__ == '__main__':
-    # send_fcm_notification()
-    # send_fcm_notification()
-    # sendPetFeedNotification("Dog")
-    # send_fcm_notification()
     app.run(host='192.168.151.21',port =8000, debug = True)
